@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS stations (
     is_renting VARCHAR(255),
     is_installed VARCHAR(255),
     is_returning VARCHAR(255),
-    FOREIGN KEY (stationcode) REFERENCES locations(stationcode)
+    FOREIGN KEY (stationcode) REFERENCES locations(stationcode),
+    UNIQUE (record_timestamp, stationcode)  -- Add this line to create a unique constraint
 );
 
 -- Create the velib_user and grant privileges

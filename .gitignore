@@ -6,3 +6,5 @@ astro
 __pycache__
 include/minio
 temp/
+
+init_guide.md

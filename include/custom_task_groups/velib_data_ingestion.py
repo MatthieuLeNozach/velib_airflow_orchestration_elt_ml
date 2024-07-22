@@ -57,7 +57,10 @@ class VelibDataIngestion(TaskGroup):
                 data = response.json()
                 if not data.get("records"):
                     raise ValueError("No data fetched from API.")
-                logger.info("Data fetched successfully: %s", data)
+                logger.info("Data fetched successfully.")
+                # Log the first record if it exists
+                first_record = data["records"][0] if data["records"] else None
+                logger.info("First record: %s", first_record)
                 return data
             except requests.exceptions.RequestException as e:
                 logger.error("Failed to fetch data from API: %s", e)
@@ -93,7 +96,8 @@ class VelibDataIngestion(TaskGroup):
                     "longitude": fields.get("coordonnees_geo", [])[1] if fields.get("coordonnees_geo") else None,
                     "nom_arrondissement_communes": fields.get("nom_arrondissement_communes", "")
                 })
-            logger.info("Data processed successfully: %s", processed_data)
+            logger.info("Data processed successfully. Processed %d records.", len(processed_data))
+            logger.info("First processed record: %s", processed_data[0] if processed_data else None)
             return processed_data
 
         # --------------------- #
@@ -107,12 +111,12 @@ class VelibDataIngestion(TaskGroup):
             logger = logging.getLogger("airflow.task")
             pg_hook = PostgresHook(postgres_conn_id='user_postgres')
             if self.table_type == "locations":
-                row_count = pg_hook.get_first(self.check_query)[0]
-                logger.info("Row count from database: %d", row_count)
-                if row_count >= 1460:
-                    logger.info("Row count check passed. Total rows: %d", row_count)
+                # Check for distinct stationcodes in the processed data
+                distinct_stationcodes = {record["stationcode"] for record in processed_data}
+                if len(distinct_stationcodes) >= 1460:
+                    logger.info("Distinct stationcode check passed. Total distinct stationcodes: %d", len(distinct_stationcodes))
                 else:
-                    raise ValueError(f"Row count check failed. Expected at least 1460 rows, but found {row_count} rows.")
+                    raise ValueError(f"Distinct stationcode check failed. Expected at least 1460 distinct stationcodes, but found {len(distinct_stationcodes)}.")
             elif self.table_type == "stations":
                 latest_timestamp = processed_data[0]["record_timestamp"]
                 result = pg_hook.get_first(self.check_query, parameters=(latest_timestamp,))

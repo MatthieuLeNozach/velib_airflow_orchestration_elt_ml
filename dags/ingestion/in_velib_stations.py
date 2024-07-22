@@ -27,7 +27,7 @@ def in_velib_stations():
         insert_query="""
         INSERT INTO stations (record_timestamp, stationcode, ebike, mechanical, duedate, numbikesavailable, numdocksavailable, capacity, is_renting, is_installed, is_returning)
         VALUES (%(record_timestamp)s, %(stationcode)s, %(ebike)s, %(mechanical)s, %(duedate)s, %(numbikesavailable)s, %(numdocksavailable)s, %(capacity)s, %(is_renting)s, %(is_installed)s, %(is_returning)s)
-        ON CONFLICT (stationcode, record_timestamp) DO NOTHING;
+        ON CONFLICT (record_timestamp, stationcode) DO NOTHING;
         """,
         table_type="stations"
     )
