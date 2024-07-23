@@ -355,3 +355,36 @@ class MinIOUploadOperator(BaseOperator):
         minio_client.fput_object(self.bucket_name, self.object_name, self.file_path)
         self.log.info(f"File {self.file_path} uploaded to {self.bucket_name}/{self.object_name}")
         os.remove(self.file_path)  # Clean up the local file
+
+
+class MinIODownloadOperator(BaseOperator):
+    """
+    Operator to download a file from MinIO.
+    :param bucket_name: Name of the bucket.
+    :param object_name: Object name in the bucket (key).
+    :param file_path: Path to save the downloaded file.
+    :param minio_conn_id: connection id of the MinIO connection.
+    """
+
+    template_fields = ("bucket_name", "object_name", "file_path", "minio_conn_id")
+
+    @apply_defaults
+    def __init__(
+        self,
+        bucket_name,
+        object_name,
+        file_path,
+        minio_conn_id: str = MinIOHook.default_conn_name,
+        *args,
+        **kwargs,
+    ):
+        super(MinIODownloadOperator, self).__init__(*args, **kwargs)
+        self.bucket_name = bucket_name
+        self.object_name = object_name
+        self.file_path = file_path
+        self.minio_conn_id = minio_conn_id
+
+    def execute(self, context):
+        minio_client = MinIOHook(self.minio_conn_id).get_conn()
+        minio_client.fget_object(self.bucket_name, self.object_name, self.file_path)
+        self.log.info(f"File {self.object_name} downloaded from {self.bucket_name} to {self.file_path}")

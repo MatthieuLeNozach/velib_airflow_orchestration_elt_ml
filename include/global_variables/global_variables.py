@@ -7,6 +7,7 @@ import logging
 import os
 from minio import Minio
 from pendulum import duration
+from datetime import timedelta
 import json
 
 # -------------------- #
@@ -28,6 +29,7 @@ WEATHER_BUCKET_NAME = "weather"
 CLIMATE_BUCKET_NAME = "climate"
 ARCHIVE_BUCKET_NAME = "archive"
 
+VELIB_BACKUP_BUCKET_NAME = "backup"
 VELIB_RAW_BUCKET_NAME = "velib_raw"
 VELIB_PROCESSED_BUCKET_NAME = "velib_processed"
 
@@ -75,6 +77,8 @@ default_args = {
     "depends_on_past": False,
     "retries": 2,
     "retry_delay": duration(minutes=5),
+    "execution_timeout": timedelta(minutes=180)  # Set execution timeout to 180 minutes
+
 }
 
 # default coordinates
