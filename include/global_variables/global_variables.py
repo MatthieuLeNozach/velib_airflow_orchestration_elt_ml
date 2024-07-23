@@ -52,7 +52,6 @@ DS_START_VELIB = Dataset("start_velib")
 
 # PostGreSQL config
 
-
 # DuckDB config
 DUCKDB_INSTANCE_NAME = json.loads(os.environ["AIRFLOW_CONN_DUCKDB_DEFAULT"])["host"]
 CONN_ID_DUCKDB = "duckdb_default"
@@ -65,8 +64,8 @@ CONN_ID_DUCKDB = "duckdb_default"
 VELIB_TABLE_NAME = "velib_table"
 VELIB_REPORTING_TABLE_NAME = "velib_reporting_table"
 
-
-
+# Pool
+DUCKDB_POOL = "duckdb"
 
 # get Airflow task logger
 task_log = logging.getLogger("airflow.task")
@@ -78,19 +77,15 @@ default_args = {
     "retries": 2,
     "retry_delay": duration(minutes=5),
     "execution_timeout": timedelta(minutes=180)  # Set execution timeout to 180 minutes
-
 }
 
 # default coordinates
 default_coordinates = {"city": "No city provided", "lat": 0, "long": 0}
 
-
 # utility functions
 def get_minio_client():
     client = Minio(MINIO_IP, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, secure=False)
-
     return client
-
 
 # command to run streamlit app within codespaces/docker
 # modifications are necessary to support double-port-forwarding
