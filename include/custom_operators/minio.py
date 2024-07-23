@@ -2,7 +2,10 @@ from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
 from airflow.models.baseoperator import BaseOperator
 from minio import Minio
+from airflow.utils.decorators import apply_defaults
+import os
 import io
+from include.global_variables import global_variables as gv
 import json
 from minio.commonconfig import CopySource
 from minio.deleteobjects import DeleteObject
@@ -337,3 +340,18 @@ class MinIODeleteObjectsOperator(BaseOperator):
         MinIOHook(self.minio_conn_id).delete_objects(
             self.bucket_name, self.object_names, self.bypass_governance_mode
         )
+
+
+class MinIOUploadOperator(BaseOperator):
+    @apply_defaults
+    def __init__(self, bucket_name, object_name, file_path, *args, **kwargs):
+        super(MinIOUploadOperator, self).__init__(*args, **kwargs)
+        self.bucket_name = bucket_name
+        self.object_name = object_name
+        self.file_path = file_path
+
+    def execute(self, context):
+        minio_client = gv.get_minio_client()
+        minio_client.fput_object(self.bucket_name, self.object_name, self.file_path)
+        self.log.info(f"File {self.file_path} uploaded to {self.bucket_name}/{self.object_name}")
+        os.remove(self.file_path)  # Clean up the local file
