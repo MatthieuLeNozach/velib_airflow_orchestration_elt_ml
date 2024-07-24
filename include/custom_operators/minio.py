@@ -123,6 +123,48 @@ class MinIOHook(BaseHook):
         for error in errors:
             self.log.info("Error occurred when deleting object:", error)
 
+    def create_bucket(self, bucket_name):
+        """
+        Create a bucket in MinIO if it does not exist.
+        :param bucket_name: Name of the bucket.
+        """
+        client = self.get_conn()
+        found = client.bucket_exists(bucket_name)
+        if not found:
+            client.make_bucket(bucket_name)
+        else:
+            self.log.info(f"Bucket {bucket_name} already exists.")
+
+    def create_folder(self, bucket_name, folder_path):
+        """
+        Create a folder in MinIO by uploading a dummy object.
+        :param bucket_name: Name of the bucket.
+        :param folder_path: Path of the folder to create.
+        """
+        client = self.get_conn()
+        dummy_object_name = f"{folder_path}/.keep"
+        client.put_object(bucket_name, dummy_object_name, io.BytesIO(b''), 0)
+        self.log.info(f"Folder {folder_path} created in bucket {bucket_name}.")
+        
+    def create_folder_structure(self, bucket_name, target_date):
+        """
+        Create the folder structure in MinIO.
+        :param bucket_name: Name of the bucket.
+        :param target_date: The target date for the folder structure.
+        """
+        client = self.get_conn()
+        year = target_date.year
+        week = target_date.isocalendar()[1]
+
+        # Check if the bucket exists before creating it
+        if not client.bucket_exists(bucket_name):
+            client.make_bucket(bucket_name)
+
+        # Create the folder structure
+        folder_path = f"archive/{year}/week_{week}/"
+        client.put_object(bucket_name, f"{folder_path}.keep", io.BytesIO(b''), 0)
+        self.log.info(f"Folder structure {folder_path} created in bucket {bucket_name}.")
+
 
 class LocalFilesystemToMinIOOperator(BaseOperator):
     """
