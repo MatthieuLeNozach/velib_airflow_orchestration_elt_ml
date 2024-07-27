@@ -1,14 +1,27 @@
-# include/custom_task_groups/velib_daily_loading.py
+# include/custom_task_groups/velib_daily_archive.py
 
 from airflow.decorators import task_group, task
 from include.custom_operators.minio import MinIOUploadOperator
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 import pandas as pd
 from datetime import datetime as dt
 
 @task_group
-def process_and_archive_data(data_json, target_date, bucket_name):
+def process_and_archive_data(target_date, bucket_name):
     @task
-    def transform_data(data_json):
+    def extract_data(target_date):
+        pg_hook = PostgresHook(postgres_conn_id='user_postgres')
+        query = f"""
+        SELECT s.*, l.name, l.latitude, l.longitude
+        FROM stations s
+        JOIN locations l ON s.stationcode = l.stationcode
+        WHERE DATE(s.record_timestamp::timestamp) = '{target_date}'
+        """
+        df = pg_hook.get_pandas_df(query)
+        return df.to_json()
+
+    @task
+    def transform_data(data_json, target_date):
         df = pd.read_json(data_json)
         df['record_timestamp'] = pd.to_datetime(df['record_timestamp'], format='%Y-%m-%dT%H:%M:%S.%f%z')
         
@@ -41,5 +54,6 @@ def process_and_archive_data(data_json, target_date, bucket_name):
         upload_task.execute(context={})
         print(f"Uploaded {object_name} to MinIO")
 
-    parquet_data_str = transform_data(data_json)
+    data_json = extract_data(target_date)
+    parquet_data_str = transform_data(data_json, target_date)
     upload_to_minio(parquet_data_str, target_date, bucket_name)

@@ -10,7 +10,7 @@ import json
 from minio.commonconfig import CopySource
 from minio.deleteobjects import DeleteObject
 from typing import Union
-
+import pandas as pd
 
 # define the class inheriting from an existing hook class
 class MinIOHook(BaseHook):
@@ -164,6 +164,27 @@ class MinIOHook(BaseHook):
         folder_path = f"archive/{year}/week_{week}/"
         client.put_object(bucket_name, f"{folder_path}.keep", io.BytesIO(b''), 0)
         self.log.info(f"Folder structure {folder_path} created in bucket {bucket_name}.")
+        
+    def list_dates_in_bucket(self, bucket_name):
+        """
+        List distinct dates of objects in MinIO bucket.
+        :param bucket_name: Name of the bucket.
+        :return: Set of distinct dates.
+        """
+        client = self.get_conn()
+        objects = client.list_objects(bucket_name=bucket_name)
+        dates = set()
+        for obj in objects:
+            # Assuming the object names contain the date in the format 'archive/{year}/week_{week}/{date}.parquet'
+            parts = obj.object_name.split('/')
+            if len(parts) >= 4:
+                date_str = parts[3].replace('.parquet', '')
+                try:
+                    date = pd.to_datetime(date_str).date()
+                    dates.add(date)
+                except ValueError:
+                    continue
+        return dates
 
 
 class LocalFilesystemToMinIOOperator(BaseOperator):

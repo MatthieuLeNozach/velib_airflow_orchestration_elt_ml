@@ -10,3 +10,4 @@ temp/
 init_guide.md
 data/unified_data.csv
 stations.csv
+data/merged_data.parquet
