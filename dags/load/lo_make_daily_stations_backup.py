@@ -14,7 +14,7 @@ from include.global_variables import global_variables as gv
     description="Daily backup of stations and locations data to MinIO",
     tags=["backup", "minio", "postgres"],
 )
-def daily_stations_backup():
+def lo_make_daily_stations_backup():
 
     @task
     def extract_and_upload_data():
@@ -71,4 +71,4 @@ def daily_stations_backup():
 
     extract_and_upload_data() >> cleanup_old_data()
 
-daily_stations_backup()
+lo_make_daily_stations_backup()

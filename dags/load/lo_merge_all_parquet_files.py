@@ -16,7 +16,7 @@ from include.global_variables import global_variables as gv
     tags=["merge", "minio"],
     default_args=gv.default_args
 )
-def merge_all_parquet_files():
+def lo_merge_all_parquet_files():
 
     @task
     def purge_temp_folder():
@@ -140,4 +140,4 @@ def merge_all_parquet_files():
     merged_file_path >> upload_merged_file_task
     upload_merged_file_task >> purge_end
 
-merge_all_parquet_files()
+lo_merge_all_parquet_files()

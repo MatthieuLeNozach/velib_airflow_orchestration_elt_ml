@@ -14,7 +14,7 @@ from datetime import timedelta
     tags=["extract", "minio"],
     default_args=gv.default_args
 )
-def archive_daily_files_from_backup_file():
+def lo_archive_daily_files_from_backup_file():
     
     @task
     def download_files():
@@ -83,4 +83,4 @@ def archive_daily_files_from_backup_file():
     files = download_files()
     extract_and_write_files(files)
 
-archive_daily_files_from_backup_file()
+lo_archive_daily_files_from_backup_file()

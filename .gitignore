@@ -11,3 +11,4 @@ init_guide.md
 data/unified_data.csv
 stations.csv
 data/merged_data.parquet
+data/2024-07-24.parquet

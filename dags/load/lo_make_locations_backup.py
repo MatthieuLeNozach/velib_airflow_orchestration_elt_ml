@@ -15,7 +15,7 @@ import os
     description="One-time backup of the locations table to MinIO",
     tags=["backup", "minio", "postgres"],
 )
-def backup_locations():
+def lo_make_locations_backup():
 
     @task
     def extract_locations():
@@ -47,4 +47,4 @@ def backup_locations():
 
     file_path >> upload_task
 
-backup_locations()
+lo_make_locations_backup()

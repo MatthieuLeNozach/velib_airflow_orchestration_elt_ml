@@ -1,19 +1,10 @@
-from airflow.decorators import dag, task
-from pendulum import datetime
+from airflow.decorators import task_group, task
 from include.custom_operators.minio import MinIOHook, MinIOUploadOperator
 import include.global_variables.global_variables as gv
 import logging
 import json
-import os
 
-@dag(
-    schedule_interval="@once",  # Trigger manually or set a schedule
-    start_date=datetime(2023, 1, 1),
-    catchup=False,
-    description="List all files in the archive bucket and create an index file",
-    tags=["list", "minio"],
-    default_args=gv.default_args
-)
+@task_group
 def list_archive_files():
     
     @task
@@ -72,5 +63,3 @@ def list_archive_files():
     files = list_files()
     index_file_path = create_index_file(files)
     upload_index_file(index_file_path)
-
-list_archive_files()
