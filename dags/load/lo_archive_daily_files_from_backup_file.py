@@ -4,21 +4,24 @@ import include.global_variables.global_variables as gv
 from include.custom_operators.minio import MinIODownloadOperator, MinIOUploadOperator
 import pandas as pd
 import logging
-from datetime import timedelta
+import os
+import duckdb
 
 @dag(
-    schedule_interval="@once",  # Trigger manually or set a schedule
+    schedule_interval="@once",
     start_date=datetime(2023, 1, 1),
     catchup=False,
     description="Extract data from MinIO and write each day's data to its corresponding file",
     tags=["extract", "minio"],
-    default_args=gv.default_args
+    default_args=gv.default_args,
+    max_active_tasks=1
 )
 def lo_archive_daily_files_from_backup_file():
     
-    @task
+    @task(pool='duckdb')
     def download_files():
-        """Download backup files from MinIO."""
+        logger = logging.getLogger("airflow.task")
+        logger.info("Downloading backup files from MinIO.")
         stations_file_path = "/tmp/stations_migration.parquet"
         locations_file_path = "/tmp/locations_backup.parquet"
         
@@ -40,37 +43,58 @@ def lo_archive_daily_files_from_backup_file():
         
         return stations_file_path, locations_file_path
 
-    @task
+    @task(pool='duckdb')
     def extract_and_write_files(files):
-        """Extract data and write each day's data to its corresponding file."""
         logger = logging.getLogger("airflow.task")
+        logger.info("Extracting data and writing each day's data to its corresponding file.")
         stations_file_path, locations_file_path = files
         
-        # Read the data
-        stations_df = pd.read_parquet(stations_file_path)
-        locations_df = pd.read_parquet(locations_file_path)
+        logger.info("Checking if files exist.")
+        if not os.path.exists(stations_file_path):
+            raise FileNotFoundError(f"File not found: {stations_file_path}")
         
-        # Merge the data
-        merged_df = pd.merge(stations_df, locations_df, on="stationcode")
+        if not os.path.exists(locations_file_path):
+            raise FileNotFoundError(f"File not found: {locations_file_path}")
         
-        # Ensure the column names and types match the live data
+        logger.info("Creating a DuckDB connection.")
+        con = duckdb.connect(database=':memory:')
+        
+        logger.info("Reading the data using DuckDB.")
+        con.execute(f"CREATE TABLE stations AS SELECT * FROM read_parquet('{stations_file_path}')")
+        con.execute(f"CREATE TABLE locations AS SELECT * FROM read_parquet('{locations_file_path}')")
+        
+        logger.info("Merging the data.")
+        merged_query = """
+        SELECT s.*, l.name, l.latitude, l.longitude
+        FROM stations s
+        LEFT JOIN locations l ON s.stationcode = l.stationcode
+        """
+        merged_df = con.execute(merged_query).fetchdf()
+        
+        logger.info("Ensuring the column names and types match the live data.")
         merged_df['record_timestamp'] = pd.to_datetime(merged_df['record_timestamp'], format='%Y-%m-%dT%H:%M:%S.%f%z')
         
-        # Extract unique dates
+        logger.info("Extracting unique dates.")
         unique_dates = merged_df['record_timestamp'].dt.date.unique()
         
-        # Write each day's data to its corresponding file
+        logger.info("Writing each day's data to its corresponding file.")
         for date in unique_dates:
-            daily_df = merged_df[merged_df['record_timestamp'].dt.date == date]
+            date_str = date.isoformat()
+            daily_query = f"""
+            SELECT *
+            FROM merged_df
+            WHERE DATE_TRUNC('day', record_timestamp) = DATE '{date_str}'
+            """
+            daily_df = con.execute(daily_query).fetchdf()
             daily_file_path = f"/tmp/{date}.parquet"
             daily_df.to_parquet(daily_file_path, index=False)
             
-            # Determine year and week for the file path
+            logger.info(f"Determining year and week for the file path for date {date}.")
             year = date.year
             week = date.isocalendar()[1]
             object_name = f"archive/{year}/week_{week}/{date}.parquet"
             
-            # Upload to MinIO
+            logger.info(f"Uploading {object_name} to MinIO.")
             upload_task = MinIOUploadOperator(
                 task_id=f"upload_{date}",
                 bucket_name=gv.ARCHIVE_BUCKET_NAME,
@@ -79,6 +103,9 @@ def lo_archive_daily_files_from_backup_file():
             )
             upload_task.execute(context={})
             logger.info(f"Uploaded {object_name} to MinIO")
+        
+        logger.info("Closing the DuckDB connection.")
+        con.close()
 
     files = download_files()
     extract_and_write_files(files)
