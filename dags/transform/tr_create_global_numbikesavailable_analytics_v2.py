@@ -7,8 +7,10 @@ from include.sql_tools.loader import SQLLoader
 import logging
 import os
 
-# Define the path for the DuckDB database file
+# Define constants
 DB_FILE_PATH = '/tmp/velib_database.db'
+PARQUET_FILE_PATH = '/tmp/merged_data.parquet'
+EXPORT_PARQUET_PATH = '/tmp/numbikesavailable.parquet'
 
 # Load SQL statements
 sql_loader = SQLLoader('include/sql_transforms/global.sql')
@@ -35,46 +37,43 @@ def tr_create_global_numbikesavailable_analytics_v2():
         task_id="download_merged_file",
         bucket_name=gv.ARCHIVE_BUCKET_NAME,
         object_name="merged_data.parquet",
-        file_path="/tmp/merged_data.parquet",
+        file_path=PARQUET_FILE_PATH,
         pool="duckdb"
     )
 
     load_parquet_to_duckdb = DuckDBOperator(
         task_id="load_parquet_to_duckdb",
-        sql="""
-        CREATE TABLE velib_global AS 
-        SELECT * FROM read_parquet('/tmp/merged_data.parquet');
-        """,
+        sql=sql_loader.get_statement('load_parquet', target_table='velib_global', parquet_file_path=PARQUET_FILE_PATH),
         database=DB_FILE_PATH,
         pool="duckdb"
     )
 
     create_stg_velib_global = DuckDBOperator(
         task_id="create_stg_velib_global",
-        sql=sql_loader.get_statement('create_stg_velib_global'),
+        sql=sql_loader.get_statement('create_table_from_select', target_table='stg_velib_global', select_statement=sql_loader.get_statement('stg_velib_global', source_table='velib_global')),
         database=DB_FILE_PATH,
         pool="duckdb"
     )
 
     create_int_velib_global = DuckDBOperator(
         task_id="create_int_velib_global",
-        sql=sql_loader.get_statement('create_int_velib_global'),
+        sql=sql_loader.get_statement('create_table_from_select', target_table='int_velib_global', select_statement=sql_loader.get_statement('int_velib_global', stg_table='stg_velib_global')),
         database=DB_FILE_PATH,
         pool="duckdb"
     )
 
     create_mart_global_numbikesavailable = DuckDBOperator(
         task_id="create_mart_global_numbikesavailable",
-        sql=sql_loader.get_statement('create_mart_global_numbikesavailable'),
+        sql=sql_loader.get_statement('create_table_from_select', target_table='mart_global_numbikesavailable', select_statement=sql_loader.get_statement('mart_global_numbikesavailable', int_table='int_velib_global')),
         database=DB_FILE_PATH,
         pool="duckdb"
     )
 
     export_to_parquet = DuckDBOperator(
         task_id="export_to_parquet",
-        sql="""
+        sql=f"""
         COPY (SELECT * FROM mart_global_numbikesavailable) 
-        TO '/tmp/numbikesavailable.parquet' (FORMAT PARQUET)
+        TO '{EXPORT_PARQUET_PATH}' (FORMAT PARQUET)
         """,
         database=DB_FILE_PATH,
         pool="duckdb"
@@ -92,7 +91,7 @@ def tr_create_global_numbikesavailable_analytics_v2():
         task_id="upload_to_minio",
         bucket_name=gv.ANALYTICS_BUCKET_NAME,
         object_name="analytics/global/numbikesavailable.parquet",
-        file_path="/tmp/numbikesavailable.parquet",
+        file_path=EXPORT_PARQUET_PATH,
         pool="duckdb"
     )
 

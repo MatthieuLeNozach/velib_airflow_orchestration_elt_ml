@@ -1,5 +1,6 @@
 import re
 from jinja2 import Template
+import os
 
 class SQLLoader:
     def __init__(self, sql_file):

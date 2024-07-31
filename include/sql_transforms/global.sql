@@ -1,15 +1,20 @@
--- name: create_stg_velib_global
-CREATE TABLE stg_velib_global AS
-SELECT record_timestamp, stationcode, numbikesavailable, mechanical, ebike
-FROM velib_global;
+-- name: load_parquet
+CREATE TABLE {{ target_table }} AS 
+SELECT * FROM read_parquet('{{ parquet_file_path }}');
 
--- name: create_int_velib_global
-CREATE TABLE int_velib_global AS
+-- name: create_table_from_select
+CREATE TABLE {{ target_table }} AS 
+{{ select_statement }};
+
+-- name: stg_velib_global
+SELECT record_timestamp, stationcode, numbikesavailable, mechanical, ebike
+FROM {{ source_table }};
+
+-- name: int_velib_global
 SELECT record_timestamp, stationcode, SUM(numbikesavailable) as total_bikes
-FROM stg_velib_global
+FROM {{ stg_table }}
 GROUP BY record_timestamp, stationcode;
 
--- name: create_mart_global_numbikesavailable
-CREATE TABLE mart_global_numbikesavailable AS
+-- name: mart_global_numbikesavailable
 SELECT record_timestamp, total_bikes
-FROM int_velib_global;
+FROM {{ int_table }};
