@@ -69,6 +69,29 @@ def tr_create_global_numbikesavailable_analytics_v2():
         pool="duckdb"
     )
 
+    @task(pool="duckdb")
+    def log_row_count_before():
+        import duckdb
+        conn = duckdb.connect(DB_FILE_PATH)
+        result = conn.execute("SELECT COUNT(*) FROM mart_global_numbikesavailable").fetchone()
+        logging.info(f"Row count before removing outliers: {result[0]}")
+        return result[0]
+
+    remove_outliers = DuckDBOperator(
+        task_id="remove_outliers",
+        sql=sql_loader.get_statement('remove_outliers', table='mart_global_numbikesavailable', column='total_bikes'),
+        database=DB_FILE_PATH,
+        pool="duckdb"
+    )
+
+    @task(pool="duckdb")
+    def log_row_count_after():
+        import duckdb
+        conn = duckdb.connect(DB_FILE_PATH)
+        result = conn.execute("SELECT COUNT(*) FROM mart_global_numbikesavailable").fetchone()
+        logging.info(f"Row count after removing outliers: {result[0]}")
+        return result[0]
+
     export_to_parquet = DuckDBOperator(
         task_id="export_to_parquet",
         sql=f"""
@@ -98,7 +121,7 @@ def tr_create_global_numbikesavailable_analytics_v2():
     # Task dependencies
     cleanup() >> download_merged_file >> load_parquet_to_duckdb >> create_stg_velib_global
     create_stg_velib_global >> create_int_velib_global >> create_mart_global_numbikesavailable
-    create_mart_global_numbikesavailable >> export_to_parquet
+    create_mart_global_numbikesavailable >> log_row_count_before() >> remove_outliers >> log_row_count_after() >> export_to_parquet
     export_to_parquet >> create_bucket >> upload_to_minio >> cleanup()
 
 tr_create_global_numbikesavailable_analytics_v2()
