@@ -1,5 +1,3 @@
-# dags/report/run_streamlit_app.py
-
 from airflow.decorators import dag
 from airflow.operators.bash import BashOperator
 from pendulum import datetime, duration
@@ -14,25 +12,28 @@ from include.global_variables import global_variables as gv
     description="Runs a streamlit app.",
     tags=["reporting", "streamlit"]
 )
-def run_streamlit_app():
+def rep_run_streamlit_app():
 
-    # Task to install altair
-    install_altair = BashOperator(
-        task_id="install_altair",
-        bash_command="pip install altair",
+    # Task to check if altair is installed
+    check_altair_installed = BashOperator(
+        task_id="check_altair_installed",
+        bash_command="python -c 'import altair' || exit 1",
     )
+
+    # Task to install altair if not installed
+    # install_altair = BashOperator(
+    #     task_id="install_altair",
+    #     bash_command="pip install altair",
+    # )
 
     # Task to run the streamlit app contained in the include folder
     run_streamlit_script = BashOperator(
         task_id="run_streamlit_script",
         bash_command=gv.STREAMLIT_COMMAND,
-        cwd="include/streamlit_app",
-        env={
-            "start_date": "{{ dag_run.conf['start_date'] }}",
-            "end_date": "{{ dag_run.conf['end_date'] }}"
-        }
+        cwd="include/streamlit_app"
     )
 
-    install_altair >> run_streamlit_script
+    check_altair_installed >> run_streamlit_script
+    # check_altair_installed >> install_altair >> run_streamlit_script
 
-run_streamlit_app()
+rep_run_streamlit_app()
