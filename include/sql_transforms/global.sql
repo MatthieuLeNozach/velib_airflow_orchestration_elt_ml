@@ -18,3 +18,13 @@ GROUP BY record_timestamp, stationcode;
 -- name: mart_global_numbikesavailable
 SELECT record_timestamp, total_bikes
 FROM {{ int_table }};
+
+
+-- name: filtered_mart_global_numbikesavailable
+SELECT
+    DATE_TRUNC('{{ granularity }}', record_timestamp) AS record_timestamp,
+    SUM(total_bikes) AS total_bikes
+FROM {{ int_table }}
+WHERE record_timestamp BETWEEN '{{ start_date }}' AND '{{ end_date }}'
+GROUP BY 1
+ORDER BY 1;

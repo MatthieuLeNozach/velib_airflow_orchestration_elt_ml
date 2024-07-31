@@ -2,6 +2,7 @@ from airflow.decorators import dag
 from airflow.operators.bash import BashOperator
 from pendulum import datetime, duration
 from include.global_variables import global_variables as gv
+import os
 
 @dag(
     start_date=datetime(2023, 1, 1),
@@ -29,8 +30,8 @@ def rep_run_streamlit_app():
     # Task to run the streamlit app contained in the include folder
     run_streamlit_script = BashOperator(
         task_id="run_streamlit_script",
-        bash_command=gv.STREAMLIT_COMMAND,
-        cwd="include/streamlit_app"
+        bash_command=f"STREAMLIT_SERVER_MAX_MESSAGE_SIZE=1500 {gv.STREAMLIT_COMMAND}",
+        cwd=os.path.join(os.getcwd(), "include/streamlit_app")
     )
 
     check_altair_installed >> run_streamlit_script
