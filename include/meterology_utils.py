@@ -116,7 +116,6 @@ def get_current_weather_from_city_coordinates(coordinates, timestamp):
 
 
 
-logger = logging.getLogger(__name__)
 
 def get_weather_for_timestamp(city: str, timestamp: datetime):
     """Queries the Open-Meteo API for weather data at a specific timestamp for the given city."""
@@ -132,7 +131,7 @@ def get_weather_for_timestamp(city: str, timestamp: datetime):
     )
 
     response_json = r.json()
-    logger.info(f"API Response: {response_json}")
+    logging.info(f"API Response: {response_json}")
 
     if r.status_code == 200 and "hourly" in response_json:
         hourly_data = response_json["hourly"]
@@ -140,18 +139,20 @@ def get_weather_for_timestamp(city: str, timestamp: datetime):
             "temperature": hourly_data["temperature_2m"][hour],
             "rain": hourly_data["rain"][hour]
         }
-        logger.info(f"Retrieved weather data for {city} at {timestamp}")
+        logging.info(f"Retrieved weather data for {city} at {timestamp}")
     else:
         weather = {
             "temperature": None,
             "rain": None
         }
-        logger.warning(
+        logging.warning(
             f"Could not retrieve weather for {city} at {timestamp}. "
             f"Request returned {r.status_code}."
         )
 
     return weather
+
+
 
 def get_weather_for_timerange(city: str, start_timestamp: datetime, end_timestamp: datetime):
     """Queries the Open-Meteo API for hourly weather data for the given city and date range."""
@@ -185,7 +186,6 @@ def get_weather_for_timerange(city: str, start_timestamp: datetime, end_timestam
 
     return hourly_weather
 
-# Assuming get_lat_long_for_cityname function is defined elsewhere
 
 def process_bike_data_with_weather(parquet_file: str, city: str):
     # Read the bike data
@@ -216,12 +216,3 @@ def process_bike_data_with_weather(parquet_file: str, city: str):
     result = result.drop(columns=['time'])
     
     return result
-
-# Usage
-city = "Paris"
-parquet_file = 'numbikesavailable.parquet'
-result_df = process_bike_data_with_weather(parquet_file, city)
-
-# Display the first few rows and info of the result
-print(result_df.head(60))
-print(result_df.info())

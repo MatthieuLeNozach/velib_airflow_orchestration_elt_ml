@@ -1,3 +1,11 @@
+-- Create the weather table if it doesn't exist
+CREATE TABLE IF NOT EXISTS weather (
+    record_timestamp TIMESTAMP PRIMARY KEY,
+    city VARCHAR(255),
+    temperature FLOAT,
+    rain FLOAT
+);
+
 -- Create the velib database if it doesn't exist
 SELECT 'CREATE DATABASE velib' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'velib')\gexec
 
@@ -30,6 +38,8 @@ CREATE TABLE IF NOT EXISTS stations (
     FOREIGN KEY (stationcode) REFERENCES locations(stationcode),
     UNIQUE (record_timestamp, stationcode)  -- Add this line to create a unique constraint
 );
+
+
 
 -- Create the velib_user and grant privileges
 DO
