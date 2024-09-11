@@ -1,12 +1,11 @@
 Overview
 ========
 
-Welcome to this hands-on repository to get started with [Apache Airflow](https://airflow.apache.org/)! :rocket:
 
-This repository contains a fully functional best practice Airflow ELT pipeline that can be run in GitHub codespaces (or locally with the [Astro CLI](https://docs.astronomer.io/astro/cli/install-cli)). 
 
 This Airflow pipeline will:
-- Ingest data from local csv files and a public API into a [MinIO](https://min.io/) container.
+- Ingest data from the Vélib API a public API into a Postgres DB
+-  [MinIO](https://min.io/) container.
 - Load data from MinIO to [DuckDB](https://duckdb.org/).
 - Transform data within DuckDB using the [Astro SDK](https://astro-sdk-python.readthedocs.io/en/stable/index.html).
 - Use a [streamlit](https://streamlit.io/) app to display your data.
@@ -26,33 +25,20 @@ How to use this repository
 
 ## Setting up
 
-### Option 1: Use GitHub Codespaces
+### xxx
 
-Run this Airflow project without installing anything locally.
-
-1. Fork this repository.
-2. Create a new GitHub codespaces project on your fork. Make sure it uses at least 4 cores!
-
-    ![Fork repo and create a codespaces project](src/fork_and_codespaces.png)
-
-3. After creating the codespaces project the Astro CLI will automatically start up all necessary Airflow components. This can take a few minutes. 
-4. Once the Airflow project has started access the Airflow UI by clicking on the **Ports** tab and opening the forward URL for port 8080.
-
-    ![Open Airflow UI URL Codespaces](src/open_airflow_ui_codespaces.png)
-
-### Option 2: Use the Astro CLI
-
-Download the [Astro CLI](https://docs.astronomer.io/astro/cli/install-cli) to run Airflow locally in Docker. `astro` is the only package you will need to install.
-
-1. Run `git clone https://github.com/TJaniF/astronomer-codespaces-test.git` on your computer to create a local clone of this repository.
-2. Install the Astro CLI by following the steps in the [Astro CLI documentation](https://docs.astronomer.io/astro/cli/install-cli). The main prerequisite is Docker Desktop/Docker Engine but no Docker knowledge is needed to run Airflow with the Astro CLI.
-3. Run `astro dev start` in your cloned repository.
-4. After your Astro project has started. View the Airflow UI at `localhost:8080`.
+1. Run `git clone https://github.com/MatthieuLeNozach/velib_airflow_orchestration_elt_ml.git`.
+2. Install the Astro CLI by following the steps in the [Astro CLI documentation](https://docs.astronomer.io/astro/cli/install-cli). The main prerequisite is Docker Desktop/Docker Engine.
+3. (Optional) Install python dependencies (`poetry install`) and activate virtual env (`poetry shell`)
+4. Run `astro dev start` in your cloned repository.
+5. After your Astro project has started. View the Airflow UI at `localhost:8080`. Thanks to `Astro`, login credentials are logged in the terminal after a successful startup. (default should be admin / admin)
 
 ## Run the project
 
-1. Go to `include/global_variables/global_variables.py` and enter your own info for `MY_NAME` and `MY_CITY`.
-2. Unpause all DAGs, starting top to bottom, by clicking on the toggle on their left hand side. Once the `start` DAG is unpaused it will run once, starting the pipeline. You can also run this DAG manually to trigger further pipeline runs by clicking on the play button on the right side of the DAG. The `TOOL_TEST_DAG` will only run if you manually do so.
+
+1. Register the postgres database in airflow: 
+2. Run `start` to create a single 
+3. Unpause all DAGs, starting top to bottom, by clicking on the toggle on their left hand side. Once the `start` DAG is unpaused it will run once, starting the pipeline. You can also run this DAG manually to trigger further pipeline runs by clicking on the play button on the right side of the DAG. The `TOOL_TEST_DAG` will only run if you manually do so.
 4. Watch the DAGs run according to their dependencies which have been set using [Datasets](https://docs.astronomer.io/learn/airflow-datasets).
 
     ![Dataset and DAG Dependencies](src/dataset_dag_dependency.png)
