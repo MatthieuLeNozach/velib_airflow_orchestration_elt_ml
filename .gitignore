@@ -17,3 +17,4 @@ data/2024-06-02.parquet
 .env
 servers.json
 .ansible/ec2_connection.txt
+.env

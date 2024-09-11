@@ -1,22 +1,11 @@
 Overview
 ========
 
-
-
 This Airflow pipeline will:
 - Ingest data from the Vélib API a public API into a Postgres DB (1460+ new rows rows every ~2mn, 1 row per station per api call)
--  Load and transform the [MinIO](https://min.io/) container.
-- Load data from MinIO to [DuckDB](https://duckdb.org/).
-- Transform data within DuckDB using the [Astro SDK](https://astro-sdk-python.readthedocs.io/en/stable/index.html).
-- Use a [streamlit](https://streamlit.io/) app to display your data.
+- Load and transform the data in `parquet` files, stored in a datalake-like set of [MinIO](https://min.io/) buckets.
+- Perform transforms with DuckDB engine, and write the refined data into parquet files 
 
-Use this repository to explore Airflow, experiment with your own DAGs and as a template for your own projects, as well as your own custom operators and task groups!
-
-This project was created with :heart: by [Astronomer](https://www.astronomer.io/).
-
-> If you are looking for an entry level written tutorial where you build your own DAG from scratch check out: [Get started with Apache Airflow, Part 1: Write and run your first DAG](https://docs.astronomer.io/learn/get-started-with-airflow).
-
-> This repository is complete and meant to be used as a blueprint to build on or to explore Airflow features. A very similar repository that includes specific exercises to learn more about Datasets, dynamic task mapping and the Astro Python SDK is the [Airflow Quickstart](https://github.com/astronomer/airflow-quickstart).
 
 -------------------------------
 
@@ -25,7 +14,6 @@ How to use this repository
 
 ## Setting up
 
-### xxx
 
 1. Run `git clone https://github.com/MatthieuLeNozach/velib_airflow_orchestration_elt_ml.git`.
 2. Install the Astro CLI by following the steps in the [Astro CLI documentation](https://docs.astronomer.io/astro/cli/install-cli). The main prerequisite is Docker Desktop/Docker Engine.
@@ -33,27 +21,23 @@ How to use this repository
 4. Run `astro dev start` in your cloned repository.
 5. After your Astro project has started. View the Airflow UI at `localhost:8080`. Thanks to `Astro`, login credentials are logged in the terminal after a successful startup. (default should be admin / admin)
 
+![diagram](/assets/readme/startu.png)
+
+
 ## Run the project
 
 
-1. Register the postgres database in airflow: 
-2. Run `start` to create a single 
-3. Unpause all DAGs, starting top to bottom, by clicking on the toggle on their left hand side. Once the `start` DAG is unpaused it will run once, starting the pipeline. You can also run this DAG manually to trigger further pipeline runs by clicking on the play button on the right side of the DAG. The `TOOL_TEST_DAG` will only run if you manually do so.
-4. Watch the DAGs run according to their dependencies which have been set using [Datasets](https://docs.astronomer.io/learn/airflow-datasets).
+1. Register the postgres database in airflow: on the top, go to `Admin/Connections` and fill the info (user/password in the 'description' field)
 
-    ![Dataset and DAG Dependencies](src/dataset_dag_dependency.png)
+![diagram](/assets/readme/db_connection.png)
 
-5. The last DAG in the pipeline `run_streamlit_app`, will stay in a running state as shown in the screenshot below.
 
-    ![DAGs view after first run](src/click_on_run_streamlit.png)
+2. Run `start` DAG to create a single-thread execution pool for DuckDB
+3. Unpause `in_*` DAGs to fetch data from Velib API / weather API and store it in the PostgreSQL DB
+4. Unpause `lo_*` DAGs to load the data from PostgreSQL DB and populate the data lake with daily parquet files 
+5. Unpause `tr_*` DAGS to perform transformations on aggregated parquet files and store the refined datasets in `ml` and `report` buckets 
 
-6. Open the Streamlit app. If you are using codespaces go to the **Ports** tab and open the URL of the forwarded port `8501`. If you are running locally go to `localhost:8501`.
 
-    ![Open Streamlit URL Codespaces](src/open_streamlit_codespaces.png)
-
-7. View the Streamlit app.
-
-    ![Streamlit app](src/streamlit_app.png)
 
 -------------------------------
 
@@ -62,7 +46,6 @@ How it works
 
 ## Components and infrastructure
 
-This repository uses a [custom codespaces container](https://github.com/astronomer/devcontainer-features/pkgs/container/devcontainer-features%2Fastro-cli) to install the [Astro CLI](https://docs.astronomer.io/astro/cli/install-cli). The GH codespaces post creation command will start up the Astro project by running `astro dev start`. 
 
 5 Docker containers will be created and relevant ports will be forwarded:
 
@@ -70,101 +53,60 @@ This repository uses a [custom codespaces container](https://github.com/astronom
 - The Airflow webserver
 - The Airflow metastore
 - The Airflow triggerer
-- A MinIO instance
+- THe Airflow artifact store (`postgres`)
+- A Postgres instance for API data ingestion (`user-postgres`)
+- A PgAdmin instance to access the user-postgres DB
+- A MinIO instance as data lake
+- A MLFlow instance to track ML experiments
 
-## The Astro project
+## Astro's Airflow distribution
 
-The Astro project defines a data pipeline using 7 DAGs that depend on each other using the Datasets feature. Datasets can be used to schedule a DAG to run based upon specific tasks finishing in other DAGs. Learn more about how to use Datasets in the [Datasets and data-aware scheduling in Airflow](https://docs.astronomer.io/learn/airflow-datasets) guide.
+
 Supporting files are located in the `include` folder with the `include/global_variables/global_variables.py` containing the variables names and configurations.
 
-In this section each DAG is explained in more detail.
 
-#### start
+## The DAGs
 
-![start DAG](src/start_dag.png)
+### Overview
 
-The `start` DAG exists for user convenience and to create an [Airflow Pool](https://docs.astronomer.io/learn/airflow-pools) called `duckdb` with one worker slot in order to prevent tasks running queries against DuckDB from overlapping. Upon unpausing the DAG it will run once and afterwards can be used to manually start a run of the whole data pipeline. This DAG contains one task using the [BashOperator](https://registry.astronomer.io/providers/apache-airflow/modules/bashoperator) to create the pool and produce to the `start` Dataset.
+![diagram](/assets/readme/ovw.png)  
 
-This DAG as all DAGs in this project uses the `@dag` decorator from the TaskFlow API. Learn more in [Introduction to Airflow decorators](https://docs.astronomer.io/learn/airflow-decorators).
+  
 
-#### in_climate_data
 
-![in_climate_data DAG](src/in_climate_data_dag.png)
+#### An ELT Pipeline:   
+![diagram](/assets/readme/velib.drawio.png)
 
-This DAG will use a re-useable task group to create a `climate` bucket in MinIO if such a bucket does not already exist. The task group is instantiated using the `CreateBucket` class in `/include/custom_task_groups/create_bucket.py`. 
+### Ingest
 
-Learn more about task groups in the [Airflow task groups](https://docs.astronomer.io/learn/task-groups) guide and more about how to create reuseable task groups in the [Reusable DAG Patterns with TaskGroups](https://www.astronomer.io/events/live/reusable-dag-patterns-with-taskgroups/) webinar.
+Schema of the data retrieved from Weather and Vélib APIs
+![db](/assets/readme/velib_postgres.png)
 
-After preparing the bucket. The DAG uses the custom `LocalFilesystemToMinIOOperator` to ingest each file located in `include/climate_data` into MinIO. The operator uses dynamic task mapping, which makes it easy to add other `local_file_path`/`object_name` pairs to ingest additional files. Dynamic task mapping is an Airflow feature that allows you to adjust the number of tasks used dynamically at runtime. See also the [Create dynamic Airflow tasks](https://docs.astronomer.io/learn/dynamic-tasks) guide.
 
-#### in_local_weather
+#### in_velib_stations / in_velib_locations
+These DAGs are responsible for data ingestion:
+- Collect data about bike-sharing stations and their locations from external sources.
+- 1460+ Vélib stations
+- 1 api call every 2mn
+- Querying the Postgres DB on millions of rows has proven tricky, hence the need to choose a file based storage, see under
 
-![in_local_weather DAG](src/in_local_weather_dag.png)
+### Load
 
-As the `in_climate_data` DAG, this DAG will use the re-useable `CreateBucket` class to instantiate a task group creating a bucket called `weather` in case it does not exist in the MinIO instance already.
+#### lo_make_daily_stations_backup
+This DAG creates the daily parquet files:
+- Creates daily backups of the station data.
+- The archive bucket has a file structure `year/week/dayoftheweek.parquet`
 
-In parallel the DAG will convert the city name you provided to coordinates and query an open API to retrieve the current weather for that location. 
 
-The last task in the DAG writes the API response to the MinIO bucket using the `LocalFilesystemToMinIOOperator`.
+#### lo_merge_all_parquet_files
+- Merges all available daily files into a single dataset.
+- DuckDB helps with **larger-than-memory** data manipulations
+- The merged data is likely used as input for the machine learning models defined in `project/inference/ml_models/schemas.py`, such as the TemperatureModel.
 
-This DAG passes information from one task to another using XCom. Learn more about this core Airflow feature in the [Pass data between tasks](https://docs.astronomer.io/learn/airflow-passing-data-between-tasks) guide.
+### Transform
 
-#### load_data
+Transforms are applied via SQL macros via the DuckDB engine ([agg examples for the global dataset](/include/sql_transforms/global.sql))
 
-![load_data DAG](src/load_data_dag.png)
-
-This DAG will first retrieve lists of objects in the MinIO weather and climate buckets in order to load the contents of these objects into tables within DuckDB. After this step the `CreateBucket` class is used to create an `archive` bucket where all objects from the `weather` and `climate` bucket are copied into, before they are deleted from their ingestion buckets. This pattern ensures that only recent data is being processed every time the pipeline runs.
-
-#### create_reporting_table
-
-![create_reporting_table DAG](src/create_reporting_table.png)
-
-This DAG uses another Astronomer Open Source project, the [Astro SDK](https://astro-sdk-python.readthedocs.io/en/stable/index.html) to run a transformation statement on data in DuckDB. The result from this transformation statement which uses partitions to create temperature averages for each decade as well as year and month, is stored in a new table. You can learn more about the Astro SDK in the [Write a DAG with the Astro Python SDK](https://docs.astronomer.io/learn/astro-python-sdk) tutorial. 
-
-#### run_streamlit_app
-
-![run_streamlit_app DAG](src/run_streamlit_app.png)
-
-The last DAG in the pipeline is special in that it will stay in a running state for you to be able to explore the local streamlit app until either you manually mark the DAG as successful or failed or a full hour has passed. The DAG uses the BashOperator to run the streamlit app located at `include/streamlit_app/weather_v_climate.py`. The app pulls information from the data that was loaded and transformed into DuckDB during this pipeline.
-
-#### TOOL_TEST_DAG
-
-This DAG exists as a convenience to test the tools Airflow is connecting to. It will retrieve a list of all buckets from MinIO, a list of all tables in the local DuckDB database and run a self-contained demo streamlit app.
-
--------------------------------
-
-Project Structure
-================
-
-This repository contains the following files and folders:
-
-- `.astro`: files necessary for Astro CLI commands.
-- `.devcontainer`: the GH codespaces configuration.
-
--  `dags`: all DAGs in your Airflow environment. Files in this folder will be parsed by the Airflow scheduler when looking for DAGs to add to your environment. You can add your own dagfiles in this folder.
-    - `ingestion`: two DAGs performing data ingestion.
-    - `load`: one DAG performing data loading from MinIO to DuckDB.
-    - `report`: one DAG running a streamlit app using data from DuckDB.
-    - `transform`: one DAG using the Astro SDK to transform a table in DuckDB.
-    - `start.py`: a DAG to kick off the pipeline.
-    - `TOOL_TEST_DAG.py`: a DAG to test the connections to DuckDB, MinIO and Streamlit.
-
-- `include`: supporting files that will be included in the Airflow environment.
-    - `climate_data`: two csv files containing climate data.
-    - `custom_operators`: a folder containing one Python file with several custom operators to interact with MinIO.
-    - `custom_task_groups`: one python file which contains a class instantiating a task group to create a bucket in MinIO if it does not exist already.
-    - `global_variables`: one python file which contains global variables and utility functions.
-    - `streamlit_app`: one python file defining a Streamlit app using the data in our pipeline.
-    - `tool_testing`: one python file with a demo Streamlit app not dependent on pipeline data for the `TOOL_TEST_DAG`. 
-    - (`minio`): folder that is created upon first start of the Airflow environment containing supporting file for the MinIO instance.
-
-- `plugins`: folder to place Airflow plugins. Empty.
-- `src`: contains images used in this README.
-- `tests`: folder to place pytests running on DAGs in the Airflow instance. Contains default tests.
-- `.dockerignore`: list of files to ignore for Docker.
-- `.env`: environment variables. Contains the definition for the DuckDB connection.
-- `.gitignore`: list of files to ignore for git. Note that `.env` is not ignored in this project.
-- `docker-compose.override.yaml`: Docker override adding a MinIO container to this project, as well as forwarding additional ports.
-- `packages.txt`: system-level packages to be installed in the Airflow environment upon building of the Dockerimage.
-- `README.md`: this Readme.
-- `requirements.txt`: python packages to be installed to be used by DAGs upon building of the Dockerimage.
+#### tr_create_global_numbikesavailable_analytics_v2
+Generates analytics on bike availability:
+- Process the consolidated data to create insights on the number of bikes available across the network.
