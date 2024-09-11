@@ -4,8 +4,8 @@ Overview
 
 
 This Airflow pipeline will:
-- Ingest data from the Vélib API a public API into a Postgres DB
--  [MinIO](https://min.io/) container.
+- Ingest data from the Vélib API a public API into a Postgres DB (1460+ new rows rows every ~2mn, 1 row per station per api call)
+-  Load and transform the [MinIO](https://min.io/) container.
 - Load data from MinIO to [DuckDB](https://duckdb.org/).
 - Transform data within DuckDB using the [Astro SDK](https://astro-sdk-python.readthedocs.io/en/stable/index.html).
 - Use a [streamlit](https://streamlit.io/) app to display your data.
