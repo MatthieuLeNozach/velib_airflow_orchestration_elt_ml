@@ -1,6 +1,6 @@
 from airflow.decorators import dag, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from pendulum import datetime, duration
+import pendulum
 import pandas as pd
 import io
 from include.custom_operators.minio import MinIOUploadOperator, MinIOHook
@@ -8,7 +8,7 @@ from include.global_variables import global_variables as gv
 
 @dag(
     schedule_interval="0 1 * * *",  # Run daily at 1 AM
-    start_date=datetime(2023, 1, 1),
+    start_date=pendulum.datetime(2023, 1, 1),
     catchup=False,
     default_args=gv.default_args,
     description="Daily backup of stations and locations data to MinIO",
@@ -22,11 +22,11 @@ def lo_make_daily_stations_backup():
         pg_hook = PostgresHook(postgres_conn_id='user_postgres')
         
         # Get yesterday's date
-        yesterday = datetime.utcnow().subtract(days=1).date()
+        yesterday = pendulum.now().subtract(days=1).date()
         
         # Extract data
         query = f"""
-        SELECT s.*, l.name, l.lat, l.lon
+        SELECT s.*, l.name, l.latitude, l.longitude
         FROM stations s
         JOIN locations l ON s.stationcode = l.stationcode
         WHERE DATE(s.record_timestamp::timestamp) = '{yesterday}'
