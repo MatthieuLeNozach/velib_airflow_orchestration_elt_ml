@@ -1,0 +1,77 @@
+---
+- name: Setup environment for Velib Astronomer project
+  hosts: localhost
+  become: yes
+
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - git
+        state: present
+
+    - name: Add Docker's official GPG key
+      shell: |
+        sudo install -m 0755 -d /etc/apt/keyrings
+        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+    - name: Add Docker repository
+      shell: |
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update
+
+    - name: Install Docker packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: Add user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Verify Docker installation
+      shell: |
+        sudo docker run hello-world
+
+    - name: Install Astro CLI
+      shell: |
+        curl -sSL https://install.astronomer.io | sudo bash
+
+    - name: Clone the Velib Astronomer repository
+      git:
+        repo: 'https://github.com/mln-cicd/velib_astronomer.git'
+        dest: /home/ubuntu/velib_astronomer
+
+    - name: Change ownership of the repository
+      file:
+        path: /home/ubuntu/velib_astronomer
+        owner: ubuntu
+        group: ubuntu
+        recurse: yes
+
+    - name: Ensure ports are exposed
+      shell: |
+        sudo ufw allow 8080
+        sudo ufw allow 5432
+        sudo ufw allow 15051
+        sudo ufw allow 9000
+        sudo ufw allow 9001
+      args:
+        executable: /bin/bash

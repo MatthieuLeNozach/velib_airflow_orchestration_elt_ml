@@ -14,3 +14,4 @@ data/merged_data.parquet
 data/2024-07-24.parquet
 *.parquet
 data/2024-06-02.parquet
+.ansible/ec2_connection.txt

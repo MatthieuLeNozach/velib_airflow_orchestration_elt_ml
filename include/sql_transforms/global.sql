@@ -7,14 +7,25 @@ FROM read_parquet('{{ parquet_file_path }}');
 CREATE TABLE {{ target_table }} AS 
 {{ select_statement }};
 
+-- ============= STG ==================
+
 -- name: stg_velib_global
-SELECT record_timestamp, stationcode, numbikesavailable
+SELECT record_timestamp, stationcode, numbikesavailable, numdocksavailable
 FROM {{ source_table }};
 
+-- ============= INT ==================
+
+
 -- name: int_velib_global
-SELECT record_timestamp, SUM(numbikesavailable) as total_bikes
+SELECT 
+    record_timestamp, 
+    SUM(numbikesavailable) as total_bikes,
+    SUM(numdocksavailable) as total_docks_available
 FROM {{ stg_table }}
 GROUP BY record_timestamp;
+
+
+-- ============= MART ==================
 
 -- name: mart_global_numbikesavailable
 SELECT record_timestamp, total_bikes
