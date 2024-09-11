@@ -66,9 +66,8 @@ def get_minio_client():
     client = Minio(MINIO_IP, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, secure=False)
     return client
 
-# command to run streamlit app within codespaces/docker
-# modifications are necessary to support double-port-forwarding
-STREAMLIT_COMMAND = "streamlit run weather_v_climate_app.py --server.enableWebsocketCompression=false --server.enableCORS=false"
+
+STREAMLIT_COMMAND = "streamlit run streamlit_app.py --server.enableWebsocketCompression=false --server.enableCORS=false"
 
 
 
